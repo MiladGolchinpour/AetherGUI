@@ -2,7 +2,7 @@
 
 macOS GUI wrapper for [Aether](https://github.com/CluvexStudio/Aether), bringing its terminal functionality to a light native desktop app.
 
-![AetherGUI](docs/screenshot.png)
+![AetherGUI](Docs/screenshot.png)
 
 ## Features
 
@@ -14,7 +14,7 @@ macOS GUI wrapper for [Aether](https://github.com/CluvexStudio/Aether), bringing
 - Automatic reconnection, and quick-reconnect to your last known-good gateway to skip rescanning
 - Local SOCKS5 proxy
 
-## Download & Usage
+## Download & Installation
 
 | Platform | Download |
 |----------|---------|
@@ -48,7 +48,9 @@ A WireGuard tunnel running inside another WireGuard tunnel, providing an additio
 ## Credits
 
 Aether Core Developed by [**CluvexStudio**](https://github.com/CluvexStudio). :))
+
 MASQUE support is built on top of Cloudflare's **Quiche** library.
 
 ## More Information
- - AetherGUI v0.1.0 uses Aether Core v1.2.0 (2026 Jul 16)
+
+AetherGUI v0.1.0 uses Aether Core v1.2.0 (2026 Jul 16)
