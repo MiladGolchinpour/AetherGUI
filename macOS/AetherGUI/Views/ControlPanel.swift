@@ -112,7 +112,7 @@ struct ControlPanel: View {
                                      subtitle: "Auto-reconnect with last gateway")
                         Divider().background(Color.white.opacity(0.06))
                         AccentToggle(title: "System Proxy", isOn: $aether.systemProxyEnabled,
-                                     subtitle: "Set macOS SOCKS proxy to bind address")
+                                     subtitle: "Automatically set proxy on connect")
 
                         if aether.selectedProtocol == .masque {
                             AccentToggle(title: "ECH", isOn: $aether.echEnabled,

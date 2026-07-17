@@ -38,7 +38,7 @@ enum ObfuscationProfile: String, CaseIterable, Identifiable {
     var id: String { rawValue }
 }
 
-enum ConnectionState {
+enum ConnectionState: Equatable {
     case disconnected
     case scanning
     case connecting
@@ -69,6 +69,7 @@ private enum UDKey {
     static let fragDelay    = "aether.fragmentDelay"
     static let keepalive    = "aether.keepalive"
     static let systemProxy  = "aether.systemProxyEnabled"
+    static let showMenuBar  = "aether.showMenuBar"
 }
 
 class AetherManager: ObservableObject {
@@ -118,14 +119,22 @@ class AetherManager: ObservableObject {
     @Published var systemProxyEnabled: Bool {
         didSet {
             UserDefaults.standard.set(systemProxyEnabled, forKey: UDKey.systemProxy)
-            if systemProxyEnabled != oldValue {
+            if systemProxyEnabled && connectionState == .connected {
                 DispatchQueue.global(qos: .userInitiated).async { [weak self] in
-                    guard let self = self else { return }
-                    if self.systemProxyEnabled { self.enableSystemProxy() }
-                    else { self.disableSystemProxy() }
+                    self?.enableSystemProxy()
+                }
+            } else if !systemProxyEnabled && systemProxyActive {
+                DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+                    self?.disableSystemProxy()
                 }
             }
         }
+    }
+
+    @Published var systemProxyActive: Bool = false
+
+    @Published var showMenuBar: Bool {
+        didSet { UserDefaults.standard.set(showMenuBar, forKey: UDKey.showMenuBar) }
     }
 
     private var process: Process?
@@ -164,13 +173,7 @@ class AetherManager: ObservableObject {
         self.fragmentDelay = d.string(forKey: UDKey.fragDelay) ?? "2-10"
         self.keepalive = d.object(forKey: UDKey.keepalive) != nil ? d.integer(forKey: UDKey.keepalive) : 5
         self.systemProxyEnabled = d.bool(forKey: UDKey.systemProxy)
-
-        // Re-apply system proxy on launch if it was saved as enabled
-        if self.systemProxyEnabled {
-            DispatchQueue.global(qos: .userInitiated).asyncAfter(deadline: .now() + 0.5) { [weak self] in
-                self?.enableSystemProxy()
-            }
-        }
+        self.showMenuBar = d.bool(forKey: UDKey.showMenuBar)
     }
 
     func markSettingsChanged() {
@@ -277,6 +280,11 @@ class AetherManager: ObservableObject {
             DispatchQueue.main.async {
                 guard let self = self else { return }
                 self.connectionState = .disconnected
+                if self.systemProxyActive {
+                    DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+                        self?.disableSystemProxy()
+                    }
+                }
                 if !self.userStopped {
                     self.addLog(level: .info, message: "Aether process exited (status \(process.terminationStatus))")
                 }
@@ -300,6 +308,11 @@ class AetherManager: ObservableObject {
         process?.terminate()
         process = nil
         connectionState = .disconnected
+        if systemProxyActive {
+            DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+                self?.disableSystemProxy()
+            }
+        }
         addLog(level: .info, message: "Stopped aether")
     }
 
@@ -309,6 +322,11 @@ class AetherManager: ObservableObject {
             userStopped = true
             process?.terminate()
             process = nil
+            if systemProxyActive {
+                DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+                    self?.disableSystemProxy()
+                }
+            }
         }
         needsReload = false
         if wasRunning {
@@ -331,7 +349,10 @@ class AetherManager: ObservableObject {
         do {
             try networksetup(["-setsocksfirewallproxy", service, "127.0.0.1", "\(port)"])
             try networksetup(["-setsocksfirewallproxystate", service, "on"])
-            DispatchQueue.main.async { self.addLog(level: .success, message: "System SOCKS proxy enabled on \(service) → 127.0.0.1:\(port)") }
+            DispatchQueue.main.async {
+                self.systemProxyActive = true
+                self.addLog(level: .success, message: "System SOCKS proxy enabled on \(service) → 127.0.0.1:\(port)")
+            }
         } catch {
             DispatchQueue.main.async { self.addLog(level: .error, message: "Failed to enable system proxy: \(error.localizedDescription)") }
         }
@@ -346,7 +367,10 @@ class AetherManager: ObservableObject {
             try networksetup(["-setsocksfirewallproxystate", service, "off"])
             try networksetup(["-setwebproxystate", service, "off"])
             try networksetup(["-setsecurewebproxystate", service, "off"])
-            DispatchQueue.main.async { self.addLog(level: .success, message: "System proxy disabled on \(service)") }
+            DispatchQueue.main.async {
+                self.systemProxyActive = false
+                self.addLog(level: .success, message: "System proxy disabled on \(service)")
+            }
         } catch {
             DispatchQueue.main.async { self.addLog(level: .error, message: "Failed to disable system proxy: \(error.localizedDescription)") }
         }
@@ -405,6 +429,11 @@ class AetherManager: ObservableObject {
 
         if message.contains("socks5 server listening") || message.contains("socks5 listening") {
             connectionState = .connected
+            if systemProxyEnabled {
+                DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+                    self?.enableSystemProxy()
+                }
+            }
         } else if message.contains("hunting for") {
             connectionState = .scanning
         } else if message.contains("selected") && (message.contains("gateway") || message.contains("endpoint")) {

@@ -1,9 +1,20 @@
 import SwiftUI
 
 struct SettingsView: View {
+    @EnvironmentObject var aether: AetherManager
+
     var body: some View {
         ScrollView(.vertical, showsIndicators: false) {
             VStack(spacing: 10) {
+                GlassCard {
+                    VStack(alignment: .leading, spacing: 10) {
+                        SectionHeader(title: "Interface", icon: "paintbrush")
+                        AccentToggle(title: "Menu Bar Icon", isOn: $aether.showMenuBar,
+                                     subtitle: "Show connection status in the menu bar")
+                    }
+                    .padding(14)
+                }
+
                 GlassCard {
                     HStack {
                         SectionHeader(title: "Configs", icon: "folder")
@@ -27,7 +38,7 @@ struct SettingsView: View {
                                     .font(.system(size: 10)).foregroundColor(Color.aetherTextDim)
                             }
                             Spacer()
-                            Text("v0.1.0")
+                            Text("v0.1.1")
                                 .font(.system(size: 10, weight: .medium, design: .monospaced))
                                 .foregroundColor(Color.aetherTextDim)
                                 .padding(.horizontal, 8).padding(.vertical, 4)

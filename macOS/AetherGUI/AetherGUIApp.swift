@@ -2,6 +2,7 @@ import SwiftUI
 
 @main
 struct AetherGUIApp: App {
+    @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
     @StateObject private var aether = AetherManager()
 
     var body: some Scene {
@@ -9,6 +10,9 @@ struct AetherGUIApp: App {
             ContentView()
                 .environmentObject(aether)
                 .frame(minWidth: 600, minHeight: 560)
+                .onAppear {
+                    appDelegate.menuBarManager.setup(with: aether)
+                }
         }
         .windowStyle(.hiddenTitleBar)
         .windowToolbarStyle(.unified(showsTitle: false))
@@ -22,4 +26,8 @@ struct AetherGUIApp: App {
         }
         #endif
     }
+}
+
+class AppDelegate: NSObject, NSApplicationDelegate {
+    let menuBarManager = MenuBarManager()
 }
