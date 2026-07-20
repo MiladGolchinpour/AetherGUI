@@ -33,6 +33,7 @@ struct ControlPanel: View {
                             case .balanced: return "equal.circle"
                             case .thorough: return "magnifyingglass"
                             case .stealth: return "eye.slash"
+                            case .ironclad: return "lock.shield.fill"
                             }
                         }
                     }

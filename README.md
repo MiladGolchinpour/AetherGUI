@@ -13,13 +13,14 @@ macOS GUI wrapper for [Aether](https://github.com/CluvexStudio/Aether), bringing
 - Traffic obfuscation
 - Automatic reconnection, and quick-reconnect to your last known-good gateway to skip rescanning
 - Local SOCKS5 proxy
+- Menu Bar + System proxy toggle
 
 ## Download & Installation
 
-| Platform | Download |
-|----------|---------|
-| macOS Apple Silicon | [AetherGUI-macOS-arm64.dmg](https://github.com/MiladGolchinpour/AetherGUI/releases/download/v0.1.1/AetherGUI-macOS-arm64.dmg) |
-| macOS Intel | [AetherGUI-macOS-x86_64.dmg](https://github.com/MiladGolchinpour/AetherGUI/releases/download/v0.1.1/AetherGUI-macOS-x86_64.dmg) |
+| Platform              | Download
+| --------------------- | ---------------------
+| macOS Apple Silicon   | [AetherGUI-macOS-arm64.dmg](https://github.com/MiladGolchinpour/AetherGUI/releases/download/v0.2.0/AetherGUI-macOS-arm64.dmg)
+| macOS Intel           | [AetherGUI-macOS-x86_64.dmg](https://github.com/MiladGolchinpour/AetherGUI/releases/download/v0.2.0/AetherGUI-macOS-x86_64.dmg)
 
 - **DMG (.dmg)** — Open the disk image and drag **AetherGUI.app** into the **Applications** folder.
 
@@ -53,4 +54,4 @@ MASQUE support is built on top of Cloudflare's **Quiche** library.
 
 ## More Information
 
-AetherGUI v0.1.1 uses Aether Core v1.2.0 (2026 Jul 16)
+AetherGUI v0.2.0 uses Aether Core v1.3.0

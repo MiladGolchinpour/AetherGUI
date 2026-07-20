@@ -2,76 +2,6 @@ import Foundation
 import SwiftUI
 import Combine
 
-enum ProtocolMode: String, CaseIterable, Identifiable {
-    case masque = "MASQUE"
-    case wireguard = "WireGuard"
-    case gool = "WARP-in-WARP"
-    var id: String { rawValue }
-}
-
-enum ScanMode: String, CaseIterable, Identifiable {
-    case turbo = "Turbo"
-    case balanced = "Balanced"
-    case thorough = "Thorough"
-    case stealth = "Stealth"
-    var id: String { rawValue }
-}
-
-enum TransportMode: String, CaseIterable, Identifiable {
-    case quic = "QUIC (H3)"
-    case h2 = "HTTP/2 (TCP)"
-    var id: String { rawValue }
-}
-
-enum IPMode: String, CaseIterable, Identifiable {
-    case ipv4 = "IPv4"
-    case ipv6 = "IPv6"
-    case dual = "Dual"
-    var id: String { rawValue }
-}
-
-enum ObfuscationProfile: String, CaseIterable, Identifiable {
-    case off = "Off"
-    case light = "Light (Firewall)"
-    case balanced = "Balanced"
-    case gfw = "GFW (Aggressive)"
-    var id: String { rawValue }
-}
-
-enum ConnectionState: Equatable {
-    case disconnected
-    case scanning
-    case connecting
-    case connected
-    case error(String)
-
-    var isActive: Bool {
-        switch self {
-        case .scanning, .connecting: return true
-        default: return false
-        }
-    }
-}
-
-// MARK: - UserDefaults Keys
-
-private enum UDKey {
-    static let protocol_    = "aether.protocol"
-    static let scanMode     = "aether.scanMode"
-    static let transport    = "aether.transportMode"
-    static let ipMode       = "aether.ipMode"
-    static let obfuscation  = "aether.obfuscation"
-    static let bindAddress  = "aether.bindAddress"
-    static let quickRec     = "aether.quickReconnect"
-    static let ech          = "aether.echEnabled"
-    static let fragment     = "aether.fragmentEnabled"
-    static let fragSize     = "aether.fragmentSize"
-    static let fragDelay    = "aether.fragmentDelay"
-    static let keepalive    = "aether.keepalive"
-    static let systemProxy  = "aether.systemProxyEnabled"
-    static let showMenuBar  = "aether.showMenuBar"
-}
-
 class AetherManager: ObservableObject {
     @Published var connectionState: ConnectionState = .disconnected
     @Published var logs: [LogEntry] = []
@@ -145,8 +75,6 @@ class AetherManager: ObservableObject {
         return false
     }
 
-    // MARK: - Init (load from UserDefaults)
-
     init() {
         let d = UserDefaults.standard
 
@@ -193,6 +121,7 @@ class AetherManager: ObservableObject {
 
         switch selectedProtocol {
         case .masque:
+            args.append("--masque")
             if transportMode == .h2 { args.append("--h2") }
         case .wireguard: args.append("--wg")
         case .gool: args.append("--gool")
@@ -206,13 +135,11 @@ class AetherManager: ObservableObject {
         case .dual: args.append("--dual")
         }
 
-        if obfuscation != .off {
-            switch obfuscation {
-            case .light: args.append(contentsOf: ["--noize", "light"])
-            case .balanced: args.append(contentsOf: ["--noize", "balanced"])
-            case .gfw: args.append(contentsOf: ["--noize", "gfw"])
-            default: break
-            }
+        switch obfuscation {
+        case .off: args.append(contentsOf: ["--noize", "off"])
+        case .light: args.append(contentsOf: ["--noize", "light"])
+        case .balanced: args.append(contentsOf: ["--noize", "balanced"])
+        case .gfw: args.append(contentsOf: ["--noize", "gfw"])
         }
 
         args.append(contentsOf: quickReconnect ? ["--quick-reconnect"] : ["--no-quick-reconnect"])
@@ -338,113 +265,6 @@ class AetherManager: ObservableObject {
 
     func clearLogs() { logs.removeAll() }
 
-    // MARK: - System Proxy
-
-    private func enableSystemProxy() {
-        let port = parseSocksPort()
-        guard let service = activeNetworkService() else {
-            DispatchQueue.main.async { self.addLog(level: .error, message: "Could not find active network service for proxy") }
-            return
-        }
-        do {
-            try networksetup(["-setsocksfirewallproxy", service, "127.0.0.1", "\(port)"])
-            try networksetup(["-setsocksfirewallproxystate", service, "on"])
-            DispatchQueue.main.async {
-                self.systemProxyActive = true
-                self.addLog(level: .success, message: "System SOCKS proxy enabled on \(service) → 127.0.0.1:\(port)")
-            }
-        } catch {
-            DispatchQueue.main.async { self.addLog(level: .error, message: "Failed to enable system proxy: \(error.localizedDescription)") }
-        }
-    }
-
-    private func disableSystemProxy() {
-        guard let service = activeNetworkService() else {
-            DispatchQueue.main.async { self.addLog(level: .warn, message: "No active network service found for proxy disable") }
-            return
-        }
-        do {
-            try networksetup(["-setsocksfirewallproxystate", service, "off"])
-            try networksetup(["-setwebproxystate", service, "off"])
-            try networksetup(["-setsecurewebproxystate", service, "off"])
-            DispatchQueue.main.async {
-                self.systemProxyActive = false
-                self.addLog(level: .success, message: "System proxy disabled on \(service)")
-            }
-        } catch {
-            DispatchQueue.main.async { self.addLog(level: .error, message: "Failed to disable system proxy: \(error.localizedDescription)") }
-        }
-    }
-
-    private func parseSocksPort() -> Int {
-        let parts = bindAddress.split(separator: ":")
-        if let last = parts.last, let port = Int(last) { return port }
-        return 1819
-    }
-
-    private func activeNetworkService() -> String? {
-        let proc = Process()
-        proc.executableURL = URL(fileURLWithPath: "/usr/sbin/networksetup")
-        proc.arguments = ["-listallnetworkservices"]
-        let pipe = Pipe()
-        proc.standardOutput = pipe
-        proc.standardError = FileHandle.nullDevice
-        do {
-            try proc.run()
-            proc.waitUntilExit()
-            let data = pipe.fileHandleForReading.readDataToEndOfFile()
-            guard let output = String(data: data, encoding: .utf8) else { return nil }
-            for line in output.components(separatedBy: "\n") {
-                let t = line.trimmingCharacters(in: .whitespaces)
-                if t.isEmpty || t.hasPrefix("***") || t == "An asterisk" { continue }
-                if t.lowercased().contains("wi-fi") || t.lowercased().contains("wifi") { return t }
-            }
-            for line in output.components(separatedBy: "\n") {
-                let t = line.trimmingCharacters(in: .whitespaces)
-                if !t.isEmpty && !t.hasPrefix("***") && !t.hasPrefix("An asterisk") { return t }
-            }
-        } catch {}
-        return nil
-    }
-
-    private func networksetup(_ args: [String]) throws {
-        let proc = Process()
-        proc.executableURL = URL(fileURLWithPath: "/usr/sbin/networksetup")
-        proc.arguments = args
-        proc.standardOutput = FileHandle.nullDevice
-        proc.standardError = FileHandle.nullDevice
-        try proc.run()
-        proc.waitUntilExit()
-        guard proc.terminationStatus == 0 else {
-            throw NSError(domain: "networksetup", code: Int(proc.terminationStatus),
-                          userInfo: [NSLocalizedDescriptionKey: "networksetup failed"])
-        }
-    }
-
-    // MARK: - Logging
-
-    private func addLog(level: LogLevel, message: String) {
-        let entry = LogEntry(id: UUID(), timestamp: Date(), level: level, message: message)
-        logs.append(entry)
-
-        if message.contains("socks5 server listening") || message.contains("socks5 listening") {
-            connectionState = .connected
-            if systemProxyEnabled {
-                DispatchQueue.global(qos: .userInitiated).async { [weak self] in
-                    self?.enableSystemProxy()
-                }
-            }
-        } else if message.contains("hunting for") {
-            connectionState = .scanning
-        } else if message.contains("selected") && (message.contains("gateway") || message.contains("endpoint")) {
-            connectionState = .connecting
-        } else if message.contains("handshake successful") {
-            connectionState = .connecting
-        }
-
-        if logs.count > 1000 { logs.removeFirst(200) }
-    }
-
     // MARK: - Binary discovery
 
     private func findAetherBinary() -> String? {
@@ -466,37 +286,5 @@ class AetherManager: ObservableObject {
             if fm.isExecutableFile(atPath: path) { return path }
         }
         return nil
-    }
-}
-
-struct LogEntry: Identifiable {
-    let id: UUID
-    let timestamp: Date
-    let level: LogLevel
-    let message: String
-}
-
-enum LogLevel {
-    case info
-    case warn
-    case error
-    case success
-
-    var color: Color {
-        switch self {
-        case .info: return .primary
-        case .warn: return .orange
-        case .error: return .red
-        case .success: return .green
-        }
-    }
-
-    var icon: String {
-        switch self {
-        case .info: return "info.circle"
-        case .warn: return "exclamationmark.triangle"
-        case .error: return "xmark.circle"
-        case .success: return "checkmark.circle"
-        }
     }
 }

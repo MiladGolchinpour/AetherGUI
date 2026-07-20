@@ -38,7 +38,7 @@ struct SettingsView: View {
                                     .font(.system(size: 10)).foregroundColor(Color.aetherTextDim)
                             }
                             Spacer()
-                            Text("v0.1.1")
+                            Text("v0.2.0")
                                 .font(.system(size: 10, weight: .medium, design: .monospaced))
                                 .foregroundColor(Color.aetherTextDim)
                                 .padding(.horizontal, 8).padding(.vertical, 4)
