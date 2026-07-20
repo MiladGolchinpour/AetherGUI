@@ -25,9 +25,16 @@ jobs:
 
       - name: Resolve latest Aether core version
         id: aether
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          VERSION=$(curl -sL https://api.github.com/repos/CluvexStudio/Aether/releases/latest | jq -r '.tag_name')
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          VERSION=$(curl -fsSL \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            https://api.github.com/repos/CluvexStudio/Aether/releases/latest \
+            | jq -r '.tag_name')
+
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "Aether core version: $VERSION"
 
       - name: Download and extract Aether core
